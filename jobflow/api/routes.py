@@ -1,12 +1,12 @@
 """API routes for JobFlow."""
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from uuid import UUID
 from datetime import datetime
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from jobflow.domain.job import Job, JobStatus, Priority
-from jobflow.api.schemas import JobSubmitRequest, JobSubmitResponse, JobResponse
+from jobflow.api.schemas import JobSubmitRequest, JobSubmitResponse, JobResponse, JobListResponse
 from jobflow.repository.postgres_repo import PostgresJobRepository
 from jobflow.db.database import get_session
 from jobflow.db.models import Job as JobModel
@@ -54,16 +54,37 @@ async def submit_job(
 
 @router.get(
     "/jobs",
-    response_model=list[JobResponse],
-    summary="List all jobs",
+    response_model=JobListResponse,
+    summary="List jobs with pagination",
 )
 async def list_jobs(
     session: Session = Depends(get_session),
-) -> list[JobResponse]:
-    """Retrieve all jobs, ordered by creation time (newest first)."""
-    db_jobs = session.query(JobModel).order_by(desc(JobModel.created_at)).all()
+    limit: int = Query(50, ge=1, le=500, description="Number of jobs per page"),
+    offset: int = Query(0, ge=0, description="Number of jobs to skip"),
+) -> JobListResponse:
+    """
+    Retrieve jobs with pagination.
     
-    return [
+    Query parameters:
+    - limit: Number of jobs to return (default: 50, max: 500)
+    - offset: Number of jobs to skip (default: 0)
+    
+    Example: GET /jobs?limit=50&offset=0
+    """
+    # Get total count
+    total_count = session.query(JobModel).count()
+    
+    # Get paginated results
+    db_jobs = (
+        session.query(JobModel)
+        .order_by(desc(JobModel.created_at))
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+    
+    # Convert to response objects
+    jobs = [
         JobResponse(
             id=db_job.id,
             job_type=db_job.job_type,
@@ -83,6 +104,13 @@ async def list_jobs(
         )
         for db_job in db_jobs
     ]
+    
+    return JobListResponse(
+        jobs=jobs,
+        total_count=total_count,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get(
@@ -120,6 +148,47 @@ async def get_job(
         completed_at=job.completed_at,
         next_attempt_at=job.next_attempt_at,
     )
+
+
+@router.get(
+    "/stats",
+    summary="Get job statistics",
+)
+async def get_job_stats(
+    session: Session = Depends(get_session),
+) -> dict:
+    """Get count of jobs by status across entire system."""
+    stats = (
+        session.query(
+            JobModel.status,
+            func.count(JobModel.id).label('count')
+        )
+        .group_by(JobModel.status)
+        .all()
+    )
+    
+    result = {
+        'total_count': session.query(JobModel).count(),
+        'pending': 0,
+        'running': 0,
+        'completed': 0,
+        'failed': 0,
+        'retrying': 0,
+    }
+    
+    for status, count in stats:
+        if status == 'PENDING':
+            result['pending'] = count
+        elif status == 'RUNNING':
+            result['running'] = count
+        elif status == 'COMPLETED':
+            result['completed'] = count
+        elif status == 'FAILED':
+            result['failed'] = count
+        elif status == 'RETRYING':
+            result['retrying'] = count
+    
+    return result
 
 
 @router.get(

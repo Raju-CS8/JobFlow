@@ -1,14 +1,6 @@
-
 import '../styles/Sidebar.css';
 
-function Sidebar({ jobs, currentView, onNavigate }) {
-  const stats = {
-    pending: jobs.filter(j => j.status === 'PENDING').length,
-    running: jobs.filter(j => j.status === 'RUNNING').length,
-    completed: jobs.filter(j => j.status === 'COMPLETED').length,
-    failed: jobs.filter(j => j.status === 'FAILED').length,
-  };
-
+function Sidebar({ stats, currentView, onNavigate }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -35,6 +27,10 @@ function Sidebar({ jobs, currentView, onNavigate }) {
 
       <div className="sidebar-stats">
         <h3>Status Summary</h3>
+        <div className="stat-row">
+          <span className="stat-label">Total Jobs</span>
+          <span className="stat-value">{stats.total_count}</span>
+        </div>
         <div className="stat-row">
           <span className="stat-label">Pending</span>
           <span className="stat-value pending">{stats.pending}</span>

@@ -1,7 +1,6 @@
 import '../styles/JobList.css';
-import '../styles/JobList.css';
 
-function JobList({ jobs, loading, onSelectJob, onSubmitNew }) {
+function JobList({ jobs, loading, onSelectJob, onSubmitNew, currentPage, totalPages, onPageChange }) {
   const getStatusColor = (status) => {
     switch (status) {
       case 'PENDING':
@@ -37,7 +36,7 @@ function JobList({ jobs, loading, onSelectJob, onSubmitNew }) {
 
       {!loading && jobs.length === 0 && (
         <div className="empty-state">
-          <p>No jobs yet</p>
+          <p>No jobs found</p>
           <button className="btn-primary" onClick={onSubmitNew}>
             Submit your first job
           </button>
@@ -45,38 +44,62 @@ function JobList({ jobs, loading, onSelectJob, onSubmitNew }) {
       )}
 
       {!loading && jobs.length > 0 && (
-        <div className="jobs-table">
-          <div className="table-header">
-            <div className="col-id">Job ID</div>
-            <div className="col-type">Type</div>
-            <div className="col-status">Status</div>
-            <div className="col-priority">Priority</div>
-            <div className="col-created">Created</div>
-          </div>
-          {jobs.map((job) => (
-            <div
-              key={job.id}
-              className="table-row"
-              onClick={() => onSelectJob(job.id)}
-            >
-              <div className="col-id">
-                <code>{job.id.substring(0, 8)}...</code>
-              </div>
-              <div className="col-type">{job.job_type}</div>
-              <div className="col-status">
-                <span className={`status-badge ${getStatusColor(job.status)}`}>
-                  {job.status}
-                </span>
-              </div>
-              <div className="col-priority">
-                <span className="priority-badge">{job.priority}</span>
-              </div>
-              <div className="col-created">
-                {formatDate(job.created_at)}
-              </div>
+        <>
+          <div className="jobs-table">
+            <div className="table-header">
+              <div className="col-id">Job ID</div>
+              <div className="col-type">Type</div>
+              <div className="col-status">Status</div>
+              <div className="col-priority">Priority</div>
+              <div className="col-created">Created</div>
             </div>
-          ))}
-        </div>
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                className="table-row"
+                onClick={() => onSelectJob(job.id)}
+              >
+                <div className="col-id">
+                  <code>{job.id.substring(0, 8)}...</code>
+                </div>
+                <div className="col-type">{job.job_type}</div>
+                <div className="col-status">
+                  <span className={`status-badge ${getStatusColor(job.status)}`}>
+                    {job.status}
+                  </span>
+                </div>
+                <div className="col-priority">
+                  <span className="priority-badge">{job.priority}</span>
+                </div>
+                <div className="col-created">
+                  {formatDate(job.created_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pagination">
+            <button
+              className="pagination-btn"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 0}
+            >
+              ← Previous
+            </button>
+            
+            <div className="pagination-info">
+              Page {currentPage + 1} of {totalPages}
+            </div>
+            
+            <button
+              className="pagination-btn"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages - 1}
+            >
+              Next →
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

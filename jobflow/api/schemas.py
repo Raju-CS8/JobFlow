@@ -1,5 +1,5 @@
 """API request/response schemas."""
-
+from typing import List
 from typing import Any, Optional
 from uuid import UUID
 from datetime import datetime
@@ -54,3 +54,12 @@ class JobSubmitResponse(BaseModel):
     id: UUID
     status: JobStatus
     message: str = "Job submitted successfully"
+    
+
+class JobListResponse(BaseModel):
+    """Response schema for paginated job list."""
+    
+    jobs: list[JobResponse]
+    total_count: int
+    limit: int
+    offset: int
