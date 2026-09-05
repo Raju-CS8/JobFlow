@@ -6,6 +6,7 @@ from uuid import UUID
 
 from jobflow.domain.job import Job, JobStatus
 from jobflow.domain.exceptions import RetryableError, PermanentError
+from jobflow.processors.order_reconciliation import ValidationError
 from jobflow.repository.postgres_repo import PostgresJobRepository
 from jobflow.processors.order_reconciliation import OrderReconciliationProcessor
 
@@ -86,6 +87,30 @@ class JobExecutor:
                 f"Attempt {attempt_number}/{job.max_attempts}"
             )
         
+        except ValidationError as e:
+            # Validation errors are PERMANENT - don't retry
+            # MUST BE FIRST in the exception chain
+            error_msg = str(e)
+            
+            self.repo.mark_failed(
+                job_id=job.id,
+                error=error_msg,
+                now=datetime.utcnow(),
+            )
+            
+            self.repo.record_attempt_finish(
+                job_id=job.id,
+                attempt_number=attempt_number,
+                status=JobStatus.FAILED.value,
+                error=error_msg,
+                finished_at=datetime.utcnow(),
+            )
+            
+            logger.warning(
+                f"Job {job.id} validation failed: {error_msg}. "
+                f"Not retrying."
+            )
+        
         except PermanentError as e:
             # Permanent error: mark FAILED, no retry
             error_msg = str(e)
@@ -162,6 +187,7 @@ class JobExecutor:
         
         except Exception as e:
             # Unexpected error: treat as retryable
+            # THIS MUST BE LAST - catches everything else
             error_msg = f"Unexpected error: {type(e).__name__}: {str(e)}"
             
             if attempt_number >= job.max_attempts:
